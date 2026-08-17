@@ -1,0 +1,57 @@
+# ===========================
+# Personal / Planning Docs
+# ===========================
+IMPLEMENTATION_PLAN.md
+DEV_JOURNAL.md
+LoRa farm synopsis.md
+doc for me (LoRa farm).md
+
+# ===========================
+# Python
+# ===========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.env
+cloud_server/.env
+venv/
+env/
+
+# ===========================
+# ML Model Artifacts
+# ===========================
+cloud_server/crop_model.pkl
+cloud_server/*.pkl
+
+# ===========================
+# SQLite Database
+# ===========================
+cloud_server/*.db
+
+# ===========================
+# IDE / Editor
+# ===========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===========================
+# OS Generated
+# ===========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===========================
+# Arduino Build
+# ===========================
+build/
+*.elf
+*.bin
+*.hex
