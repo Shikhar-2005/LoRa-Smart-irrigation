@@ -1,8 +1,12 @@
 /*
  * LoRa Smart Irrigation - Cloud Uplink Implementation
  *
- * Handles WiFi connection, JSON payload construction,
- * and HTTP POST with retry logic.
+ * Uses WiFiManager for captive portal WiFi setup.
+ * On first boot, the ESP32 creates a hotspot called "LoRa-Irrigation-Setup".
+ * Connect to it from your phone, pick your WiFi, enter the password.
+ * Credentials are saved to flash and used automatically on next boot.
+ *
+ * To reset saved WiFi: hold BOOT button during startup (GPIO 0).
  */
 
 #include "cloud_uplink.h"
@@ -11,6 +15,13 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <WiFiManager.h>
+
+// --- WiFiManager instance ---
+static WiFiManager wm;
+
+// Reset pin: hold this LOW during boot to clear saved WiFi and re-enter setup
+#define WIFI_RESET_PIN 0  // GPIO 0 = BOOT button on most ESP32 DevKits
 
 // --- WiFi Management --------------------------------------------------------
 
@@ -19,27 +30,37 @@ bool wifi_connect() {
         return true;
     }
 
-    Serial.print("[*] Connecting to WiFi '");
-    Serial.print(WIFI_SSID);
-    Serial.print("'");
-
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-    unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED) {
-        if (millis() - start > WIFI_CONNECT_TIMEOUT) {
-            Serial.println("\n[FAIL] WiFi connection timeout!");
-            return false;
-        }
+    // Check if user is holding the BOOT button to reset WiFi
+    pinMode(WIFI_RESET_PIN, INPUT_PULLUP);
+    delay(100);
+    if (digitalRead(WIFI_RESET_PIN) == LOW) {
+        Serial.println("[*] BOOT button held - clearing saved WiFi credentials!");
+        wm.resetSettings();
         delay(500);
-        Serial.print(".");
     }
 
-    Serial.println();
-    Serial.print("[OK] WiFi connected. IP: ");
-    Serial.println(WiFi.localIP());
-    return true;
+    // WiFiManager settings
+    wm.setConfigPortalTimeout(180);  // Portal stays open for 3 minutes
+    wm.setConnectTimeout(15);        // Try each network for 15 seconds
+    wm.setAPStaticIPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
+
+    Serial.println("[*] Starting WiFiManager...");
+    Serial.println("    If no saved WiFi found, connect to hotspot:");
+    Serial.println("    SSID: 'LoRa-Irrigation-Setup'");
+    Serial.println("    Then open 192.168.4.1 in your browser");
+
+    // autoConnect: tries saved credentials first.
+    // If they fail (or none saved), starts AP with captive portal.
+    bool connected = wm.autoConnect("LoRa-Irrigation-Setup");
+
+    if (connected) {
+        Serial.print("[OK] WiFi connected! IP: ");
+        Serial.println(WiFi.localIP());
+        return true;
+    } else {
+        Serial.println("[FAIL] WiFi setup timed out. Will retry next cycle.");
+        return false;
+    }
 }
 
 bool wifi_is_connected() {
@@ -50,7 +71,20 @@ bool wifi_ensure_connected() {
     if (wifi_is_connected()) {
         return true;
     }
-    Serial.println("[*] WiFi disconnected, reconnecting...");
+    Serial.println("[*] WiFi lost, reconnecting...");
+    // Try reconnecting with saved credentials
+    WiFi.reconnect();
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < WIFI_CONNECT_TIMEOUT) {
+        delay(500);
+        Serial.print(".");
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\n[OK] Reconnected!");
+        return true;
+    }
+    // If reconnect fails, start the portal again
+    Serial.println("\n[*] Reconnect failed, starting setup portal...");
     return wifi_connect();
 }
 

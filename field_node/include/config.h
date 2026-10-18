@@ -79,7 +79,7 @@
 // =========================================================================
 
 #define SERIAL_BAUD         115200
-#define LED_PIN             2       // Built-in LED (most ESP32 boards)
+#define LED_PIN             4       // Built-in LED moved to GPIO 4 (GPIO 2 used by LoRa DIO0)
 #define SENSOR_WARMUP_MS    2000    // Wait after power-on for sensors to stabilize
 #define MAX_TX_RETRIES      3       // LoRa transmit retry count
 

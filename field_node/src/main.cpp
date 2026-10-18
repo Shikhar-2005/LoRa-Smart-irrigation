@@ -129,7 +129,8 @@ bool lora_send(const String& packet) {
         Serial.print(MAX_TX_RETRIES);
         Serial.print("...");
 
-        int state = radio.transmit(packet);
+        String mutable_packet = packet;  // RadioLib transmit() needs mutable String&
+        int state = radio.transmit(mutable_packet);
 
         if (state == RADIOLIB_ERR_NONE) {
             Serial.println(" OK");

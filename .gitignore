@@ -69,3 +69,8 @@ build/
 # Firmware Secrets
 # ===========================
 **/credentials.h
+
+# ===========================
+# Research Notes
+# ===========================
+research/
