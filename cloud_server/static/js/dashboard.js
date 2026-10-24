@@ -111,6 +111,25 @@ function updateNPK(data) {
     $('#barK').style.width = `${Math.min((data.k_estimated / kMax) * 100, 100)}%`;
 }
 
+function updateNPKBadges(settings) {
+    if (!settings) return;
+
+    const soilBadge = $('#badgeSoil');
+    const fertBadge = $('#badgeFertilizer');
+
+    if (settings.npk_estimate) {
+        const npk = settings.npk_estimate;
+        soilBadge.textContent = npk.soil_name || 'Soil: —';
+        const fertText = npk.fertilizer_name || 'None';
+        const doseText = npk.dosage_name || '';
+        if (fertText === 'None (Virgin / Unfertilized)') {
+            fertBadge.textContent = 'No Fertilizer';
+        } else {
+            fertBadge.textContent = `${fertText} (${doseText})`;
+        }
+    }
+}
+
 function updatePrediction(data) {
     if (!data || !data.predicted_crop) return;
 
@@ -350,12 +369,13 @@ function buildChart(readings) {
 // ─── Master Refresh ─────────────────────────────────────────────────
 
 async function refreshDashboard() {
-    const [latest, history, alerts, stats, weather] = await Promise.all([
+    const [latest, history, alerts, stats, weather, settings] = await Promise.all([
         fetchJSON(API.latest),
         fetchJSON(`${API.history}?hours=${currentTimeRange}`),
         fetchJSON(API.alerts),
         fetchJSON(API.stats),
         fetchJSON(API.weather).catch(() => null),  // May 400 if location not set
+        fetchJSON(API.settings).catch(() => null),
     ]);
 
     const online = latest !== null;
@@ -367,6 +387,10 @@ async function refreshDashboard() {
         updateNPK(latest);
         updatePrediction(latest);
         updateIrrigation(latest);
+    }
+
+    if (settings) {
+        updateNPKBadges(settings);
     }
 
     if (history && history.readings) {
@@ -422,9 +446,64 @@ function setupEventListeners() {
             $('#inputCity').value = settings.city || '';
             $('#inputLat').value = settings.latitude || '';
             $('#inputLon').value = settings.longitude || '';
+
+            // Populate soil type dropdown
+            const soilSelect = $('#selectSoilType');
+            if (settings.available_soils && soilSelect.options.length <= 1) {
+                soilSelect.innerHTML = '';
+                settings.available_soils.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.key;
+                    opt.textContent = s.name;
+                    soilSelect.appendChild(opt);
+                });
+            }
+            soilSelect.value = settings.soil_type || 'alluvial';
+
+            // Populate fertilizer dropdown
+            const fertSelect = $('#selectFertilizer');
+            if (settings.available_fertilizers && fertSelect.options.length <= 1) {
+                fertSelect.innerHTML = '';
+                settings.available_fertilizers.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.key;
+                    opt.textContent = f.name;
+                    fertSelect.appendChild(opt);
+                });
+            }
+            fertSelect.value = settings.fertilizer_type || 'none';
+
+            // Populate dosage dropdown
+            const doseSelect = $('#selectDose');
+            if (settings.available_dosages && doseSelect.options.length <= 1) {
+                doseSelect.innerHTML = '';
+                settings.available_dosages.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.key;
+                    opt.textContent = d.name;
+                    doseSelect.appendChild(opt);
+                });
+            }
+            doseSelect.value = settings.fertilizer_dose || 'none';
+
+            // Update NPK preview
+            updateNPKPreview(settings.npk_estimate);
         }
         $('#settingsModal').classList.add('visible');
     });
+
+    // Live preview update when soil, fertilizer, or dosage dropdowns change
+    const updateModalNPKPreview = () => {
+        const soil = $('#selectSoilType').value;
+        const fert = $('#selectFertilizer').value;
+        const dose = $('#selectDose').value;
+        const npk = computeLiveNPK(soil, fert, dose);
+        updateNPKPreview(npk);
+    };
+
+    $('#selectSoilType').addEventListener('change', updateModalNPKPreview);
+    $('#selectFertilizer').addEventListener('change', updateModalNPKPreview);
+    $('#selectDose').addEventListener('change', updateModalNPKPreview);
 
     $('#btnCloseModal').addEventListener('click', () => {
         $('#settingsModal').classList.remove('visible');
@@ -442,6 +521,9 @@ function setupEventListeners() {
             city: $('#inputCity').value.trim(),
             latitude: $('#inputLat').value,
             longitude: $('#inputLon').value,
+            soil_type: $('#selectSoilType').value,
+            fertilizer_type: $('#selectFertilizer').value,
+            fertilizer_dose: $('#selectDose').value,
         };
 
         try {
@@ -469,6 +551,61 @@ function setupEventListeners() {
             });
         });
     });
+}
+
+// ─── NPK Preview & Live Calculation (Settings Modal) ────────────────
+const SOIL_BASELINES_JS = {
+    'alluvial':        { n: 75.0, p: 45.0, k: 45.0 },
+    'black_cotton':    { n: 35.0, p: 25.0, k: 75.0 },
+    'red_laterite':    { n: 30.0, p: 20.0, k: 30.0 },
+    'arid_desert':     { n: 18.0, p: 15.0, k: 35.0 },
+    'mountain_forest': { n: 60.0, p: 30.0, k: 50.0 },
+};
+
+const FERTILIZERS_JS = {
+    'none':          { n: 0,  p: 0,  k: 0 },
+    'urea':          { n: 46, p: 0,  k: 0 },
+    'dap':           { n: 18, p: 46, k: 0 },
+    'mop':           { n: 0,  p: 0,  k: 60 },
+    'npk_10_26_26':  { n: 10, p: 26, k: 26 },
+    'npk_12_32_16':  { n: 12, p: 32, k: 16 },
+    'npk_20_20_0':   { n: 20, p: 20, k: 0 },
+    'ssp':           { n: 0,  p: 16, k: 0 },
+    'compost':       { n: 5,  p: 3,  k: 5 },
+};
+
+const DOSAGES_JS = {
+    'none':     0,
+    'low':      25,
+    'standard': 50,
+    'high':     100,
+};
+
+function computeLiveNPK(soilKey, fertKey, doseKey) {
+    const base = SOIL_BASELINES_JS[soilKey] || SOIL_BASELINES_JS['alluvial'];
+    const fert = FERTILIZERS_JS[fertKey] || FERTILIZERS_JS['none'];
+    const kg = DOSAGES_JS[doseKey] !== undefined ? DOSAGES_JS[doseKey] : 0;
+    const factor = 0.025;
+
+    const deltaN = +(fert.n * kg * factor).toFixed(1);
+    const deltaP = +(fert.p * kg * factor).toFixed(1);
+    const deltaK = +(fert.k * kg * factor).toFixed(1);
+
+    const effN = Math.min(Math.max(+(base.n + deltaN).toFixed(1), 0), 140);
+    const effP = Math.min(Math.max(+(base.p + deltaP).toFixed(1), 0), 145);
+    const effK = Math.min(Math.max(+(base.k + deltaK).toFixed(1), 0), 205);
+
+    return { n: effN, p: effP, k: effK };
+}
+
+function updateNPKPreview(npkEstimate) {
+    const el = $('#npkPreviewValues');
+    if (!el) return;
+    if (npkEstimate && npkEstimate.n != null) {
+        el.textContent = `N: ${npkEstimate.n} | P: ${npkEstimate.p} | K: ${npkEstimate.k}`;
+    } else {
+        el.textContent = 'N: — | P: — | K: —';
+    }
 }
 
 // ─── Utilities ──────────────────────────────────────────────────────

@@ -52,7 +52,7 @@ def format_sensor_alert(data, prediction, irrigation_active):
         f"  Air Temp: <b>{data['air_temp']:.1f} C</b>\n"
         f"  Humidity: <b>{data['humidity']:.1f}%</b>\n"
         f"  Light: <b>{data['light']:.0f}</b>\n\n"
-        f"<b>NPK Estimation:</b>\n"
+        f"<b>Soil Nutrients (Location + Fertilizer):</b>\n"
         f"  N: <b>{data['n']:.1f}</b> | "
         f"P: <b>{data['p']:.1f}</b> | "
         f"K: <b>{data['k']:.1f}</b>\n\n"

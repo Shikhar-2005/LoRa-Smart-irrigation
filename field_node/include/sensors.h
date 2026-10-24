@@ -1,7 +1,8 @@
 /*
  * LoRa Smart Irrigation - Sensor Interface
  *
- * Reads all field sensors and performs NPK soft-sensing estimation.
+ * Reads all field sensors. NPK values in the struct are legacy placeholders;
+ * the cloud server overrides them with location + fertilizer based estimates.
  */
 
 #ifndef SENSORS_H
@@ -18,9 +19,9 @@ struct SensorData {
     float humidity;     // Relative humidity (%) - BME280
     float pressure;     // Barometric pressure (hPa) - BME280
     float light;        // Light intensity (lux, 0-65535) - BH1750
-    float n;            // Nitrogen estimate (soft-sensed)
-    float p;            // Phosphorus estimate (soft-sensed)
-    float k;            // Potassium estimate (soft-sensed)
+    float n;            // Nitrogen   (legacy placeholder, overridden by cloud)
+    float p;            // Phosphorus (legacy placeholder, overridden by cloud)
+    float k;            // Potassium  (legacy placeholder, overridden by cloud)
     bool  valid;        // True if all critical readings succeeded
 };
 
@@ -33,7 +34,8 @@ struct SensorData {
 void sensors_init();
 
 /**
- * Read all sensors and compute NPK estimates.
+ * Read all sensors. NPK fields are populated with legacy placeholder values;
+ * the cloud server overrides them with location + fertilizer estimates.
  * Returns a SensorData struct with all values populated.
  */
 SensorData sensors_read();

@@ -22,7 +22,11 @@ from database import (
 )
 from telegram_bot import send_alert, format_sensor_alert, format_weather_alert
 from weather_service import get_current_weather, get_hourly_forecast, should_skip_irrigation
-from region_crops import filter_predictions, get_region_for_city, get_available_regions
+from region_crops import filter_predictions, get_region_for_city, get_available_regions, get_default_soil_for_city
+from soil_service import (
+    calculate_estimated_npk,
+    get_available_soil_types, get_available_fertilizers, get_available_dosages,
+)
 
 # --- App Setup ---------------------------------------------------------------
 
@@ -46,28 +50,36 @@ def load_model():
 
 # --- ML Inference ------------------------------------------------------------
 
-def map_sensor_to_features(data):
-    """Map raw sensor readings to the 7 features the ML model expects."""
-    ph = 6.5 + 0.01 * (data['moisture'] - 50)       # Empirical proxy
-    rainfall = data['moisture'] * 2.5                  # Empirical proxy
+def map_sensor_to_features(data, ph_override=None):
+    """Map raw sensor readings to the 7 features the ML model expects.
+
+    Args:
+        data: dict with sensor + NPK values
+        ph_override: if provided, use this pH instead of the empirical proxy
+    """
+    if ph_override is not None:
+        ph = ph_override
+    else:
+        ph = 6.5 + 0.01 * (data['moisture'] - 50)       # Empirical proxy fallback
+    rainfall = data['moisture'] * 2.5                      # Empirical proxy
 
     return np.array([[
-        data['n'],          # Nitrogen   (soft-sensed)
-        data['p'],          # Phosphorus (soft-sensed)
-        data['k'],          # Potassium  (soft-sensed)
+        data['n'],          # Nitrogen   (location + fertilizer based)
+        data['p'],          # Phosphorus (location + fertilizer based)
+        data['k'],          # Potassium  (location + fertilizer based)
         data['soil_temp'],  # temperature
         data['humidity'],   # humidity
-        ph,                 # ph
+        ph,                 # ph (from soil profile or proxy)
         rainfall,           # rainfall
     ]])
 
 
-def predict_crop(data):
+def predict_crop(data, ph_override=None):
     """Run ML prediction; return top crops with confidence scores."""
     if model is None:
         return {'crop': 'Model not loaded', 'confidence': 0, 'top_3': [], 'top_5': []}
 
-    features = map_sensor_to_features(data)
+    features = map_sensor_to_features(data, ph_override=ph_override)
     prediction = model.predict(features)[0]
     probabilities = model.predict_proba(features)[0]
     classes = model.classes_
@@ -84,6 +96,15 @@ def predict_crop(data):
 
 
 # --- Helpers -----------------------------------------------------------------
+
+def _compute_cloud_npk():
+    """Compute NPK from saved soil + fertilizer settings.
+    Returns the full result dict from soil_service, or None if not configured."""
+    soil_type = get_setting('soil_type', 'alluvial')
+    fert_type = get_setting('fertilizer_type', 'none')
+    fert_dose = get_setting('fertilizer_dose', 'none')
+    return calculate_estimated_npk(soil_type, fert_type, fert_dose)
+
 
 def _apply_region_filter(prediction):
     """Apply region-based crop filtering if a city is configured."""
@@ -151,19 +172,34 @@ def api_predict():
     apply irrigation logic, and send Telegram alerts.
 
     Expected JSON: {moisture, soil_temp, air_temp, humidity, light, n, p, k}
+    Note: n, p, k from the edge are legacy dummy values and are overridden
+    by the cloud-side location + fertilizer model when configured.
     """
     try:
         data = request.get_json(force=True)
 
-        # Validate
-        required = ['moisture', 'soil_temp', 'air_temp', 'humidity', 'light', 'n', 'p', 'k']
+        # Validate physical sensor fields (n, p, k accepted but may be overridden)
+        required = ['moisture', 'soil_temp', 'air_temp', 'humidity', 'light']
         for field in required:
             if field not in data:
                 return jsonify({'error': f'Missing field: {field}'}), 400
             data[field] = float(data[field])
 
+        # Ensure n, p, k exist (edge may still send them)
+        for field in ['n', 'p', 'k']:
+            data[field] = float(data.get(field, 0))
+
+        # Override edge NPK with cloud-computed location + fertilizer model
+        npk_result = _compute_cloud_npk()
+        ph_override = None
+        if npk_result:
+            data['n'] = npk_result['n']
+            data['p'] = npk_result['p']
+            data['k'] = npk_result['k']
+            ph_override = npk_result['ph']
+
         # ML prediction + region filter
-        prediction = predict_crop(data)
+        prediction = predict_crop(data, ph_override=ph_override)
         prediction = _apply_region_filter(prediction)
 
         # Irrigation + weather logic
@@ -261,19 +297,38 @@ def api_weather():
 
 @app.route('/api/settings', methods=['GET', 'POST'])
 def api_settings():
-    """Get or update system settings (location, etc.)."""
+    """Get or update system settings (location, soil, fertilizer)."""
     if request.method == 'POST':
         data = request.get_json(force=True)
-        for key in ('latitude', 'longitude', 'city'):
+        for key in ('latitude', 'longitude', 'city',
+                    'soil_type', 'fertilizer_type', 'fertilizer_dose'):
             if key in data:
                 set_setting(key, data[key])
+
+        # Auto-detect soil type from city if not explicitly set
+        if 'city' in data and 'soil_type' not in data:
+            city = data['city']
+            if city:
+                auto_soil = get_default_soil_for_city(city)
+                set_setting('soil_type', auto_soil)
+
         return jsonify({'status': 'ok', 'message': 'Settings updated'}), 200
+
+    # Compute current NPK estimate for display
+    npk_result = _compute_cloud_npk()
 
     return jsonify({
         'latitude': get_setting('latitude', ''),
         'longitude': get_setting('longitude', ''),
         'city': get_setting('city', ''),
+        'soil_type': get_setting('soil_type', 'alluvial'),
+        'fertilizer_type': get_setting('fertilizer_type', 'none'),
+        'fertilizer_dose': get_setting('fertilizer_dose', 'none'),
+        'npk_estimate': npk_result,
         'regions': get_available_regions(),
+        'available_soils': get_available_soil_types(),
+        'available_fertilizers': get_available_fertilizers(),
+        'available_dosages': get_available_dosages(),
     }), 200
 
 
@@ -281,7 +336,8 @@ def api_settings():
 def api_simulate():
     """
     Inject simulated sensor data for testing without hardware.
-    Generates random but realistic readings, runs full prediction pipeline.
+    Generates random but realistic physical readings, then uses
+    the location + fertilizer model for NPK estimation.
     """
     m  = round(random.uniform(15, 85), 1)
     st = round(random.uniform(18, 38), 1)
@@ -289,10 +345,15 @@ def api_simulate():
     h  = round(random.uniform(30, 95), 1)
     li = round(random.uniform(100, 1000), 0)
 
-    # NPK soft-sensing (same formulas as ESP32 firmware)
-    n = round(0.35 * m * (1.0 + 0.02 * st) + 4.0 * (h / 100.0), 1)
-    p = round(0.20 * m * (1.0 - 0.005 * at) + 8.0 * (1.0 - h / 150.0), 1)
-    k = round(0.25 * m * (1.0 + 0.003 * li) + 6.0 * st / 40.0, 1)
+    # NPK from location + fertilizer model (replaces old pseudo-formulas)
+    npk_result = _compute_cloud_npk()
+    ph_override = None
+    if npk_result:
+        n, p, k = npk_result['n'], npk_result['p'], npk_result['k']
+        ph_override = npk_result['ph']
+    else:
+        # Fallback if no soil profile configured
+        n, p, k = 75.0, 45.0, 45.0
 
     sim_data = {
         'moisture': m, 'soil_temp': st, 'air_temp': at,
@@ -300,7 +361,7 @@ def api_simulate():
     }
 
     # ML prediction + region filter
-    prediction = predict_crop(sim_data)
+    prediction = predict_crop(sim_data, ph_override=ph_override)
     prediction = _apply_region_filter(prediction)
 
     # Irrigation logic

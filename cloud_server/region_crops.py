@@ -135,6 +135,14 @@ def filter_predictions(predictions, region='any'):
     return filtered if filtered else predictions
 
 
+def get_default_soil_for_city(city_name):
+    """Look up the default indigenous soil type for a city.
+    Chains city → region → soil type lookups."""
+    from soil_service import get_default_soil_for_region
+    region = get_region_for_city(city_name)
+    return get_default_soil_for_region(region)
+
+
 def get_available_regions():
     """Return display-name -> key mapping for the settings UI."""
     return {

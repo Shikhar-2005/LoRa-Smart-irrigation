@@ -2,8 +2,12 @@
  * LoRa Smart Irrigation - Sensor Implementations
  *
  * Reads capacitive soil moisture (ADC), BME280 (air temp + humidity +
- * pressure), DS18B20 (soil temperature), BH1750 (light intensity),
- * then computes NPK estimates using empirical soft-sensing formulas.
+ * pressure), DS18B20 (soil temperature), BH1750 (light intensity).
+ *
+ * NOTE: The NPK estimation formulas below are LEGACY PLACEHOLDERS.
+ * The cloud server overrides these with location-aware soil baselines
+ * + farmer fertilizer amendments. Edge NPK values are kept in the
+ * packet format for backward compatibility only.
  */
 
 #include "sensors.h"
@@ -141,13 +145,16 @@ static float read_light() {
     return lux;
 }
 
-// --- NPK Soft-Sensing -------------------------------------------------------
+// --- NPK Legacy Placeholders ------------------------------------------------
 //
-// These formulas estimate N, P, K from physical sensor readings.
-// They are empirical proxies -- not a replacement for real soil testing.
-// The ML model on the cloud server is trained to work with these estimates.
+// DEPRECATED: These formulas are scientifically arbitrary proxies.
+// The cloud server (flask_app.py) now overrides them with location-based
+// soil baselines + farmer fertilizer amendments via soil_service.py.
+// These are retained ONLY so the LoRa packet format stays backward-compatible
+// (LIRR,moisture,soil_temp,air_temp,humidity,light,n,p,k) and already-flashed
+// hardware does not need to be re-programmed.
 //
-// IMPORTANT: These formulas MUST match cloud_server/flask_app.py api_simulate()
+// DO NOT rely on these values for any analysis or ML inference.
 
 static void estimate_npk(SensorData& data) {
     float m  = data.moisture;

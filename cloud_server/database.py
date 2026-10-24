@@ -58,6 +58,16 @@ def init_db():
     c.execute('''CREATE INDEX IF NOT EXISTS idx_alerts_timestamp
                  ON alerts(timestamp)''')
 
+    # Seed default soil & fertilizer settings (INSERT OR IGNORE = won't overwrite)
+    defaults = {
+        'soil_type': 'alluvial',
+        'fertilizer_type': 'none',
+        'fertilizer_dose': 'none',
+    }
+    for key, value in defaults.items():
+        c.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)',
+                  (key, value))
+
     conn.commit()
     conn.close()
     print("[OK] Database initialized")

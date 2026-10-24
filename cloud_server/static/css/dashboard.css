@@ -406,6 +406,37 @@ body::before {
     font-variant-numeric: tabular-nums;
 }
 
+/* NPK Meta Badges */
+
+.npk-meta {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.npk-badge {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.soil-badge {
+    background: rgba(6, 214, 160, 0.12);
+    color: var(--n-color);
+    border: 1px solid rgba(6, 214, 160, 0.2);
+}
+
+.fert-badge {
+    background: rgba(236, 72, 153, 0.12);
+    color: var(--p-color);
+    border: 1px solid rgba(236, 72, 153, 0.2);
+}
+
 /* AI Prediction */
 
 .prediction-main {
@@ -891,6 +922,96 @@ body::before {
 
 .btn-primary:active {
     transform: translateY(0);
+}
+
+/* Settings Sections */
+
+.settings-section {
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.settings-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: 0.5rem;
+}
+
+.settings-section-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.01em;
+}
+
+/* Select Dropdowns (match input styling) */
+
+.form-group select {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.25s var(--ease);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='m6 9 6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.8rem center;
+    padding-right: 2rem;
+}
+
+.form-group select:focus {
+    border-color: var(--moisture);
+    box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.1);
+}
+
+.form-group select option {
+    background: #0d1321;
+    color: var(--text-primary);
+}
+
+/* Form Hint */
+
+.form-hint {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+    font-style: italic;
+}
+
+/* NPK Preview (in Settings Modal) */
+
+.npk-preview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.8rem;
+    margin-top: 0.75rem;
+    background: rgba(6, 214, 160, 0.06);
+    border: 1px solid rgba(6, 214, 160, 0.15);
+    border-radius: 10px;
+}
+
+.preview-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--n-color);
+}
+
+.preview-values {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
 }
 
 /* ─── Utility Animations ──────────────────────────────────────────── */

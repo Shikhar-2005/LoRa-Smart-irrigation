@@ -126,9 +126,13 @@
 
         <!-- INFO CARDS ROW -->
         <section class="info-row">
-            <!-- NPK Estimation -->
+            <!-- Soil Nutrients (NPK) -->
             <div class="card npk-card">
-                <h2 class="card-title">🧪 NPK Estimation</h2>
+                <h2 class="card-title">🧪 Soil Nutrients (NPK)</h2>
+                <div class="npk-meta" id="npkMeta">
+                    <span class="npk-badge soil-badge" id="badgeSoil">Soil: —</span>
+                    <span class="npk-badge fert-badge" id="badgeFertilizer">Fertilizer: —</span>
+                </div>
                 <div class="npk-bars">
                     <div class="npk-row">
                         <span class="npk-label">N</span>
@@ -261,19 +265,52 @@
                 <button class="btn-close" id="btnCloseModal">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label for="inputCity">City</label>
-                    <input type="text" id="inputCity" placeholder="e.g. Bengaluru">
+                <!-- Location Section -->
+                <div class="settings-section">
+                    <h3 class="settings-section-title">📍 Location</h3>
+                    <div class="form-group">
+                        <label for="inputCity">City</label>
+                        <input type="text" id="inputCity" placeholder="e.g. Bengaluru">
+                    </div>
+                    <div class="form-group">
+                        <label for="inputLat">Latitude</label>
+                        <input type="number" id="inputLat" step="0.0001" placeholder="e.g. 12.9716">
+                    </div>
+                    <div class="form-group">
+                        <label for="inputLon">Longitude</label>
+                        <input type="number" id="inputLon" step="0.0001" placeholder="e.g. 77.5946">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="inputLat">Latitude</label>
-                    <input type="number" id="inputLat" step="0.0001" placeholder="e.g. 12.9716">
+
+                <!-- Soil & Fertilizer Section -->
+                <div class="settings-section">
+                    <h3 class="settings-section-title">🌱 Soil & Fertilizer</h3>
+                    <div class="form-group">
+                        <label for="selectSoilType">Soil Type</label>
+                        <select id="selectSoilType">
+                            <!-- Populated dynamically from /api/settings -->
+                        </select>
+                        <span class="form-hint" id="soilHint">Auto-detected from city when available</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="selectFertilizer">Fertilizer Applied</label>
+                        <select id="selectFertilizer">
+                            <!-- Populated dynamically from /api/settings -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="selectDose">Dosage</label>
+                        <select id="selectDose">
+                            <!-- Populated dynamically from /api/settings -->
+                        </select>
+                    </div>
+                    <div class="npk-preview" id="npkPreview">
+                        <span class="preview-label">Estimated NPK:</span>
+                        <span class="preview-values" id="npkPreviewValues">N: — | P: — | K: —</span>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="inputLon">Longitude</label>
-                    <input type="number" id="inputLon" step="0.0001" placeholder="e.g. 77.5946">
-                </div>
-                <button class="btn-primary" id="btnSaveSettings">Save Location</button>
+
+                <button class="btn-primary" id="btnSaveSettings">Save Settings</button>
             </div>
         </div>
     </div>
