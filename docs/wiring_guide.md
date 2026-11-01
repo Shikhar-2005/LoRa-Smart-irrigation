@@ -6,6 +6,8 @@ This document outlines the pin connections for both the Field Node and Gateway N
 
 The Field Node operates on battery/solar power and interfaces with various sensors.
 
+> **USB-only / demo mode:** Battery, solar panel, and TP4056 charger are not required. Power the ESP32 directly from a PC USB port. Do NOT connect battery to VIN while USB is plugged in.
+
 ### LoRa Module (SX1278)
 | LoRa Pin | ESP32 GPIO | Notes |
 | -------- | ---------- | ----- |
@@ -55,11 +57,20 @@ The Gateway Node runs on mains power, receives LoRa packets, controls the water 
 | VCC | 5V | Power for the optocoupler and coil |
 | GND | GND | Common Ground |
 
-**Solenoid Valve Wiring**: 
+> **Demo mode (no valve):** Connect only VCC, GND, and IN to hear the relay click. Leave COM, NO, and NC completely unconnected. The 12V solenoid valve and power adapter are not required.
+
+**Solenoid Valve Wiring (production only)**:
 Connect the 12V DC power supply in series with the Solenoid Valve through the Relay's Normally Open (NO) and Common (COM) terminals.
 
 ---
 
 ## Power Supply Notes
-- **Field Node**: The Field Node should be powered using an 18650 battery paired with a TP4056 charging module and a 5V solar panel.
-- **Gateway Node**: The Gateway Node can be powered via a standard 5V micro-USB adapter, while the Solenoid Valve requires its own separate 12V DC 2A power supply. Ensure both grounds (ESP32 and 12V supply) are NOT connected if using a completely isolated optocoupler relay, otherwise connect grounds if using a shared ground system.
+- **Field Node**: Designed for an 18650 battery + TP4056 charging module + 5V solar panel. For USB-only demo: power via PC USB, omit battery and solar components entirely.
+- **Gateway Node**: Powered via standard 5V micro-USB (or PC USB for demo). The Solenoid Valve requires a separate 12V DC 2A supply (not needed for demo — relay alone works). Ensure both grounds (ESP32 and 12V supply) are NOT connected if using a completely isolated optocoupler relay, otherwise connect grounds if using a shared ground system.
+
+## Irrigation Decision Flow (Cloud-First)
+
+The gateway firmware uploads sensor data to the Flask server **before** touching the relay:
+- Server responds with `{"irrigation": {"triggered": true}}` → relay opens.
+- Server responds with `{"irrigation": {"triggered": false}}` (e.g. rain forecast) → relay stays closed.
+- If server is unreachable (HTTP error) → fallback to local `moisture < 30%` threshold.
