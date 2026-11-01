@@ -101,33 +101,42 @@ void loop() {
             Serial.print("     Moisture: "); Serial.print(moisture, 1); Serial.println("%");
             Serial.print("     Soil Temp: "); Serial.print(soil_temp, 1); Serial.println(" C");
 
-            // --- Irrigation Decision ---
-            if (moisture < MOISTURE_THRESHOLD) {
-                Serial.print("[!!] Moisture below threshold (");
-                Serial.print(MOISTURE_THRESHOLD, 1);
-                Serial.println("%) - ACTIVATING IRRIGATION");
-                relay_set(true);
-                blink_led(3, 200, 100);  // Triple blink = irrigation ON
-            } else {
-                Serial.println("[OK] Moisture adequate - no irrigation needed");
-                relay_set(false);
-            }
-
-            // --- Cloud Upload ---
+            // --- Cloud Upload FIRST (cloud is the authority on irrigation) ---
             Serial.println("[*] Uploading to cloud server...");
-            int http_code = cloud_post_reading(
+            int cloud_decision = cloud_post_reading(
                 moisture, soil_temp, air_temp,
                 humidity, light, n, p, k
             );
 
-            if (http_code == 200) {
-                Serial.println("[OK] Cloud upload successful");
-                blink_led(1, 500, 0);  // Long blink = cloud OK
+            // --- Irrigation Decision ---
+            if (cloud_decision == 1) {
+                // Cloud authorized irrigation
+                Serial.println("[!!] Cloud authorized irrigation - ACTIVATING VALVE");
+                relay_set(true);
+                blink_led(3, 200, 100);  // Triple blink = irrigation ON
+                blink_led(1, 500, 0);    // Long blink = cloud OK
+
+            } else if (cloud_decision == 0) {
+                // Cloud denied (rain expected or moisture sufficient)
+                Serial.println("[*] Cloud denied irrigation (rain expected or moisture sufficient). Valve remains CLOSED.");
+                relay_set(false);
+                blink_led(1, 500, 0);    // Long blink = cloud OK
+
             } else {
-                Serial.print("[FAIL] Cloud upload failed (HTTP ");
-                Serial.print(http_code);
-                Serial.println(")");
+                // cloud_decision < 0: offline / server unreachable — local fallback
+                Serial.println("[!] Cloud unreachable - falling back to local threshold logic.");
                 blink_led(2, 100, 100);  // Short double = cloud fail
+
+                if (moisture < MOISTURE_THRESHOLD) {
+                    Serial.print("[!!] (Fallback) Moisture below threshold (");
+                    Serial.print(MOISTURE_THRESHOLD, 1);
+                    Serial.println("%) - ACTIVATING IRRIGATION");
+                    relay_set(true);
+                    blink_led(3, 200, 100);
+                } else {
+                    Serial.println("[OK] (Fallback) Moisture adequate - no irrigation needed");
+                    relay_set(false);
+                }
             }
 
         } else {

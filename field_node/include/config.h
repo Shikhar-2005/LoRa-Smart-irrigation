@@ -72,7 +72,7 @@
 // How long to sleep between readings (in seconds)
 // 300 = 5 minutes (good for production)
 //  30 = 30 seconds (good for testing/demo)
-#define SLEEP_DURATION_SEC  300
+#define SLEEP_DURATION_SEC  30
 
 // =========================================================================
 // Misc

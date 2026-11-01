@@ -31,6 +31,7 @@ bool wifi_ensure_connected();
 
 /**
  * POST sensor data to the cloud server's /api/predict endpoint.
+ * Parses the JSON response to extract the irrigation decision.
  *
  * @param moisture    Soil moisture (%)
  * @param soil_temp   Soil temperature (C)
@@ -41,7 +42,12 @@ bool wifi_ensure_connected();
  * @param p           Phosphorus estimate
  * @param k           Potassium estimate
  *
- * Returns HTTP response code (200 = success), or -1 on failure.
+ * Returns:
+ *   1  = Cloud authorizes irrigation (HTTP 200, "irrigation.triggered" == true)
+ *   0  = Cloud denies irrigation    (HTTP 200, "irrigation.triggered" == false,
+ *                                    e.g. rain expected or moisture sufficient)
+ *  -1  = Failure: WiFi disconnected, HTTP POST failed after retries,
+ *                 or JSON deserialization error
  */
 int cloud_post_reading(
     float moisture, float soil_temp, float air_temp,

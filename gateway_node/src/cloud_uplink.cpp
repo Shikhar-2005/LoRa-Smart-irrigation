@@ -137,7 +137,15 @@ int cloud_post_reading(
             Serial.print("): ");
             Serial.println(response.substring(0, 200));
             http.end();
-            return responseCode;
+
+            JsonDocument respDoc;
+            DeserializationError error = deserializeJson(respDoc, response);
+            if (!error && respDoc["irrigation"].is<JsonObject>()) {
+                bool triggered = respDoc["irrigation"]["triggered"] | false;
+                return triggered ? 1 : 0;
+            }
+            Serial.println("[!!] Failed to parse irrigation decision from server response");
+            return -1;
         }
 
         Serial.print("[!!] HTTP POST failed (attempt ");
