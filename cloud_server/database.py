@@ -58,6 +58,18 @@ def init_db():
     c.execute('''CREATE INDEX IF NOT EXISTS idx_alerts_timestamp
                  ON alerts(timestamp)''')
 
+    # --- Schema migrations (ADD COLUMN IF NOT EXISTS via try/except) ----------
+    new_cols = [
+        "ALTER TABLE sensor_readings ADD COLUMN top_crops_json TEXT",
+        "ALTER TABLE sensor_readings ADD COLUMN soil_health_score REAL",
+        "ALTER TABLE sensor_readings ADD COLUMN decision_source TEXT",
+    ]
+    for sql in new_cols:
+        try:
+            c.execute(sql)
+        except Exception:
+            pass  # column already exists
+
     # Seed default soil & fertilizer settings (INSERT OR IGNORE = won't overwrite)
     defaults = {
         'soil_type': 'alluvial',
@@ -82,13 +94,16 @@ def store_reading(data):
     c.execute('''INSERT INTO sensor_readings
         (moisture, soil_temp, air_temp, humidity, light,
          n_estimated, p_estimated, k_estimated,
-         predicted_crop, confidence, irrigation_triggered)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+         predicted_crop, confidence, irrigation_triggered,
+         top_crops_json, soil_health_score, decision_source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (data['moisture'], data['soil_temp'], data['air_temp'],
          data['humidity'], data['light'],
          data['n'], data['p'], data['k'],
          data.get('predicted_crop'), data.get('confidence'),
-         data.get('irrigation_triggered', 0)))
+         data.get('irrigation_triggered', 0),
+         data.get('top_crops_json'), data.get('soil_health_score'),
+         data.get('decision_source')))
     conn.commit()
     reading_id = c.lastrowid
     conn.close()
@@ -203,3 +218,71 @@ def set_setting(key, value):
               (key, str(value)))
     conn.commit()
     conn.close()
+
+
+# --- Advisory Layer Queries --------------------------------------------------
+
+def get_recent_moisture_readings(n=10):
+    """Return the last N moisture values and timestamps for trend computation."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''SELECT moisture, timestamp FROM sensor_readings
+                 ORDER BY id DESC LIMIT ?''', (n,))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    # Reverse so oldest is first (chronological order)
+    rows.reverse()
+    return rows
+
+
+def get_soil_health_inputs(days=30):
+    """
+    Aggregate data needed for soil health score computation.
+
+    Returns a dict with:
+        moisture_values, n_values, p_values, k_values,
+        irrigation_count, total_readings
+    """
+    conn = get_connection()
+    c = conn.cursor()
+    since = (datetime.utcnow() - timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S')
+
+    c.execute('''SELECT moisture, n_estimated, p_estimated, k_estimated,
+                        irrigation_triggered
+                 FROM sensor_readings
+                 WHERE timestamp >= ?''', (since,))
+    rows = c.fetchall()
+    conn.close()
+
+    if not rows:
+        return {
+            'moisture_values': [], 'n_values': [], 'p_values': [], 'k_values': [],
+            'irrigation_count': 0, 'total_readings': 0,
+        }
+
+    moisture_vals = [r['moisture'] for r in rows if r['moisture'] is not None]
+    n_vals = [r['n_estimated'] for r in rows if r['n_estimated'] is not None]
+    p_vals = [r['p_estimated'] for r in rows if r['p_estimated'] is not None]
+    k_vals = [r['k_estimated'] for r in rows if r['k_estimated'] is not None]
+    irr_count = sum(1 for r in rows if r['irrigation_triggered'] == 1)
+
+    return {
+        'moisture_values':  moisture_vals,
+        'n_values':         n_vals,
+        'p_values':         p_vals,
+        'k_values':         k_vals,
+        'irrigation_count': irr_count,
+        'total_readings':   len(rows),
+    }
+
+
+def get_irrigation_event_count(hours=24):
+    """Return number of irrigation events (irrigation_triggered=1) in the last N hours."""
+    conn = get_connection()
+    c = conn.cursor()
+    since = (datetime.utcnow() - timedelta(hours=hours)).strftime('%Y-%m-%d %H:%M:%S')
+    c.execute('''SELECT COUNT(*) as cnt FROM sensor_readings
+                 WHERE irrigation_triggered = 1 AND timestamp >= ?''', (since,))
+    row = c.fetchone()
+    conn.close()
+    return row['cnt'] if row else 0

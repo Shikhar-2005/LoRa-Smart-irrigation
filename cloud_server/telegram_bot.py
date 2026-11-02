@@ -40,8 +40,18 @@ def send_alert(message, parse_mode='HTML'):
 
 
 def format_sensor_alert(data, prediction, irrigation_active):
-    """Format a rich sensor data alert for Telegram."""
+    """Format a rich sensor data alert for Telegram, including top-3 crops and NPK status."""
     irr_label = "[WATER] ACTIVE - Valve OPEN" if irrigation_active else "[OK] IDLE - Valve CLOSED"
+
+    # Build NPK status line for top crop
+    top_crop = prediction.get('crop', 'N/A')
+    top_conf = prediction.get('confidence', 0)
+
+    # Top-3 runner-up list
+    top3 = prediction.get('top_3', [])
+    runners_lines = ''
+    for i, (crop, prob) in enumerate(top3[:3], 1):
+        runners_lines += f"  {i}. {crop.title()} ({prob:.1f}%)\n"
 
     msg = (
         f"<b>LoRa Smart Irrigation Update</b>\n"
@@ -56,9 +66,64 @@ def format_sensor_alert(data, prediction, irrigation_active):
         f"  N: <b>{data['n']:.1f}</b> | "
         f"P: <b>{data['p']:.1f}</b> | "
         f"K: <b>{data['k']:.1f}</b>\n\n"
-        f"<b>AI Prediction:</b> {prediction.get('crop', 'N/A')} "
-        f"({prediction.get('confidence', 0):.1f}%)\n\n"
+        f"<b>Top Crop Recommendations:</b>\n"
+        f"{runners_lines}\n"
         f"<b>Irrigation:</b> {irr_label}"
+    )
+    return msg
+
+
+def format_disease_risk_alert(risks, crop, sensor_data):
+    """Format a disease / stress risk alert for Telegram."""
+    if not risks:
+        return None
+    lines = [f"<b>Disease / Stress Risk Alert</b>", "====================", ""]
+    lines.append(f"Crop: <b>{crop.title()}</b>")
+    lines.append(f"Soil Temp: {sensor_data.get('soil_temp', '?'):.1f} C  "
+                 f"Humidity: {sensor_data.get('humidity', '?'):.1f}%  "
+                 f"Moisture: {sensor_data.get('moisture', '?'):.1f}%")
+    lines.append("")
+    for r in risks:
+        sev = r['severity']
+        lines.append(f"[{sev}] <b>{r['name']}</b>")
+        lines.append(f"  {r['recommendation'][:200]}")
+        lines.append("")
+    return '\n'.join(lines)
+
+
+def format_morning_digest(data, prediction, soil_health, moisture_trend, disease_risks):
+    """Format a daily morning digest summary for Telegram."""
+    top_crop = prediction.get('crop', 'N/A') if prediction else 'N/A'
+    top_conf = prediction.get('confidence', 0) if prediction else 0
+
+    moisture = data.get('moisture', 0) if data else 0
+    trend = moisture_trend.get('trend_label', 'Stable') if moisture_trend else 'Stable'
+    hours_until = moisture_trend.get('hours_until_threshold') if moisture_trend else None
+
+    score = soil_health.get('score', 0) if soil_health else 0
+    health_label = soil_health.get('label', 'Unknown') if soil_health else 'Unknown'
+
+    risk_summary = ''
+    if disease_risks:
+        risk_summary = f"\n<b>Risks:</b> {len(disease_risks)} active alerts\n"
+
+    threshold_note = ''
+    if hours_until is not None:
+        threshold_note = f"  Irrigation needed in approx {hours_until:.1f} hours\n"
+
+    msg = (
+        f"<b>Good Morning - Daily Farm Digest</b>\n"
+        f"====================\n\n"
+        f"<b>Current Readings:</b>\n"
+        f"  Moisture: <b>{moisture:.1f}%</b> ({trend})\n"
+        f"{threshold_note}"
+        f"  N: {data.get('n', 0):.1f} | "
+        f"P: {data.get('p', 0):.1f} | "
+        f"K: {data.get('k', 0):.1f}\n\n"
+        f"<b>Best Crop Today:</b> {top_crop.title()} ({top_conf:.1f}%)\n\n"
+        f"<b>Soil Health Score:</b> {score}/100 ({health_label})\n"
+        f"{risk_summary}\n"
+        f"<i>Have a great farming day!</i>"
     )
     return msg
 

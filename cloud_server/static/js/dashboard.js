@@ -15,6 +15,7 @@ const API = {
     weather:  '/api/weather',
     settings: '/api/settings',
     simulate: '/api/simulate',
+    advisory: '/api/advisory',
 };
 
 // ─── State ──────────────────────────────────────────────────────────
@@ -135,6 +136,23 @@ function updatePrediction(data) {
 
     $('#predictedCrop').textContent = data.predicted_crop;
     $('#confidence').textContent = `${(data.confidence || 0).toFixed(1)}%`;
+
+    const runnerEl = $('#runnerCrops');
+    if (runnerEl && data.top_crops_json) {
+        try {
+            const topCrops = JSON.parse(data.top_crops_json);
+            if (Array.isArray(topCrops) && topCrops.length > 1) {
+                runnerEl.innerHTML = topCrops.slice(1, 3).map(c => `
+                    <div class="runner-item">
+                        <span class="crop-name">${escapeHtml(c.crop || '')}</span>
+                        <span class="crop-prob">${(c.match_pct || 0).toFixed(1)}%</span>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {
+            runnerEl.innerHTML = '';
+        }
+    }
 }
 
 function updateIrrigation(data) {
@@ -369,13 +387,14 @@ function buildChart(readings) {
 // ─── Master Refresh ─────────────────────────────────────────────────
 
 async function refreshDashboard() {
-    const [latest, history, alerts, stats, weather, settings] = await Promise.all([
+    const [latest, history, alerts, stats, weather, settings, advisory] = await Promise.all([
         fetchJSON(API.latest),
         fetchJSON(`${API.history}?hours=${currentTimeRange}`),
         fetchJSON(API.alerts),
         fetchJSON(API.stats),
         fetchJSON(API.weather).catch(() => null),  // May 400 if location not set
         fetchJSON(API.settings).catch(() => null),
+        fetchJSON(API.advisory).catch(() => null),
     ]);
 
     const online = latest !== null;
@@ -407,6 +426,183 @@ async function refreshDashboard() {
 
     if (weather && !weather.error) {
         updateWeather(weather);
+    }
+
+    if (advisory && !advisory.error) {
+        updateAdvisory(advisory);
+        updateSoilHealthScore(advisory.soil_health);
+        updateMoistureTrend(advisory.moisture_trend);
+        updateDiseaseRisk(advisory.disease_risks);
+        if (advisory.top_3_enriched && advisory.top_3_enriched.length > 0) {
+            updateSowingCalendar(advisory.top_3_enriched[0].sowing_window,
+                                  advisory.top_3_enriched[0].crop);
+        }
+    }
+}
+
+// ─── Advisory Update Functions ──────────────────────────────────────
+
+function updateAdvisory(advisory) {
+    const container = $('#cropAdvisoryList');
+    if (!container) return;
+    const top3 = advisory.top_3_enriched;
+    if (!top3 || top3.length === 0) {
+        container.innerHTML = '<div class="empty-state">No advisory data yet</div>';
+        return;
+    }
+
+    container.innerHTML = top3.map((item, idx) => {
+        const crop = item.crop || '—';
+        const pct  = (item.match_pct || 0).toFixed(1);
+
+        // NPK status badges
+        const npkHtml = (item.npk_prescription || []).map(n => {
+            const statusClass = n.status === 'ok' ? 'npk-ok'
+                              : n.status === 'low' ? 'npk-low' : 'npk-high';
+            const icon = n.status === 'ok' ? '&#10003;'
+                       : n.status === 'low' ? '&#8595;' : '&#8593;';
+            return `<span class="npk-status-badge ${statusClass}">${n.nutrient} ${icon}</span>`;
+        }).join('');
+
+        // Fertilizer prescription (only deficits)
+        const deficits = (item.npk_prescription || []).filter(n => n.status === 'low');
+        const prescHtml = deficits.length > 0
+            ? deficits.map(n =>
+                `<div class="prescription-line">
+                    <span class="presc-nutrient">${n.nutrient} deficit (${n.deficit.toFixed(1)} units):</span>
+                    Apply <b>${n.product}</b> — ${n.dose_kg_acre} kg/acre
+                    <span class="presc-organic">Organic: ${n.organic || '—'}</span>
+                </div>`
+              ).join('')
+            : '<div class="prescription-line presc-ok">All nutrients are within optimal range.</div>';
+
+        // Sowing window
+        const sw = item.sowing_window || {};
+        const swClass = sw.in_window ? 'sowing-now' : 'sowing-wait';
+        const swText  = sw.in_window
+            ? `Now is a good sowing window (${sw.window_desc})`
+            : sw.months_until > 0
+                ? `Next window in ${sw.months_until} month(s) (${sw.window_desc})`
+                : sw.window_desc || 'No calendar data';
+
+        const rankClass = idx === 0 ? 'advisory-rank-1' : idx === 1 ? 'advisory-rank-2' : 'advisory-rank-3';
+
+        return `
+        <div class="crop-advisory-item ${rankClass}">
+            <div class="advisory-header">
+                <div class="advisory-crop-name">${escapeHtml(crop.charAt(0).toUpperCase() + crop.slice(1))}</div>
+                <div class="advisory-match">${pct}% match</div>
+            </div>
+            <div class="npk-status-row">${npkHtml}</div>
+            <div class="prescription-box">${prescHtml}</div>
+            <div class="sowing-window-badge ${swClass}">${escapeHtml(swText)}</div>
+        </div>`;
+    }).join('');
+}
+
+function updateSoilHealthScore(health) {
+    const scoreEl = $('#soilHealthScore');
+    const labelEl = $('#soilHealthLabel');
+    const breakEl = $('#healthBreakdown');
+    if (!health || !scoreEl) return;
+
+    const score = health.score || 0;
+    scoreEl.textContent = score;
+
+    const label = health.label || 'Unknown';
+    if (labelEl) {
+        labelEl.textContent = label;
+        labelEl.className = 'health-score-label ' +
+            (score >= 75 ? 'health-good' : score >= 50 ? 'health-fair' : 'health-poor');
+    }
+
+    if (breakEl && health.breakdown) {
+        const b = health.breakdown;
+        breakEl.innerHTML = `
+            <div class="health-breakdown-item">
+                <span>Moisture stability</span>
+                <span>${b.moisture_stability || 0}/40</span>
+            </div>
+            <div class="health-breakdown-item">
+                <span>NPK balance</span>
+                <span>${b.npk_balance || 0}/40</span>
+            </div>
+            <div class="health-breakdown-item">
+                <span>Irrigation frequency</span>
+                <span>${b.irrigation_freq || 0}/20</span>
+            </div>`;
+    }
+}
+
+function updateMoistureTrend(trend) {
+    const labelEl = $('#trendLabel');
+    const detailEl = $('#trendDetail');
+    if (!trend || !labelEl) return;
+
+    const trendLabel = trend.trend_label || 'Stable';
+    const slope = trend.slope_pct_per_hour || 0;
+    const hoursUntil = trend.hours_until_threshold;
+
+    labelEl.textContent = trendLabel;
+    labelEl.className = 'trend-label ' +
+        (trendLabel === 'Drying Fast' ? 'trend-danger'
+         : trendLabel === 'Drying'    ? 'trend-warning'
+         : trendLabel === 'Wetting'   ? 'trend-info'
+         : 'trend-stable');
+
+    let detail = `${slope >= 0 ? '+' : ''}${slope.toFixed(2)}%/hr`;
+    if (hoursUntil !== null && hoursUntil !== undefined) {
+        detail += ` · Irrigation needed in ~${hoursUntil.toFixed(1)} h`;
+    } else if (slope >= 0) {
+        detail += ' · Soil moisture is stable or rising';
+    }
+    if (detailEl) detailEl.textContent = detail;
+}
+
+function updateSowingCalendar(sowingWindow, cropName) {
+    const container = $('#sowingCalendar');
+    if (!container || !sowingWindow) return;
+
+    const crop = cropName || 'Selected Crop';
+    const sw = sowingWindow;
+    const inWindow = sw.in_window;
+    const wdesc = sw.window_desc || 'Unknown';
+    const monthsUntil = sw.months_until;
+
+    let statusHtml;
+    if (inWindow) {
+        statusHtml = `<div class="sow-status sow-now">Now is the optimal sowing time!</div>`;
+    } else if (monthsUntil > 0) {
+        statusHtml = `<div class="sow-status sow-wait">Next window in ${monthsUntil} month(s)</div>`;
+    } else {
+        statusHtml = `<div class="sow-status">See calendar for details</div>`;
+    }
+
+    container.innerHTML = `
+        <div class="sow-crop-name">${escapeHtml(crop.charAt(0).toUpperCase() + crop.slice(1))}</div>
+        <div class="sow-months">${escapeHtml(wdesc)}</div>
+        ${statusHtml}`;
+}
+
+function updateDiseaseRisk(risks) {
+    const banner = $('#diseaseRiskBanner');
+    const content = $('#diseaseRiskContent');
+    if (!banner) return;
+
+    if (!risks || risks.length === 0) {
+        banner.style.display = 'none';
+        return;
+    }
+
+    banner.style.display = 'flex';
+    if (content) {
+        content.innerHTML = risks.map(r => {
+            const sevClass = r.severity === 'HIGH' ? 'risk-high' : 'risk-medium';
+            return `<div class="risk-item ${sevClass}">
+                        <strong>${escapeHtml(r.name)}</strong>
+                        <span>${escapeHtml(r.recommendation.slice(0, 150))}…</span>
+                    </div>`;
+        }).join('');
     }
 }
 

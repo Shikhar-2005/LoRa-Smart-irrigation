@@ -183,6 +183,53 @@
             </div>
         </section>
 
+        <!-- DISEASE RISK BANNER (conditionally shown) -->
+        <div class="disease-risk-banner" id="diseaseRiskBanner" style="display:none">
+            <div class="disease-risk-inner">
+                <span class="disease-risk-icon">⚠️</span>
+                <div id="diseaseRiskContent"><!-- filled by JS --></div>
+            </div>
+        </div>
+
+        <!-- INSIGHTS ROW: Soil Health | Moisture Trend | Sowing Calendar -->
+        <section class="insights-row">
+            <!-- Soil Health Score -->
+            <div class="card soil-health-card">
+                <h2 class="card-title">🌍 Soil Health Score</h2>
+                <div class="health-score-display">
+                    <span class="health-score-value" id="soilHealthScore">—</span>
+                    <span class="health-score-max">/100</span>
+                </div>
+                <div class="health-score-label" id="soilHealthLabel">No data</div>
+                <div class="health-breakdown" id="healthBreakdown"><!-- filled by JS --></div>
+            </div>
+
+            <!-- Moisture Trend Forecast -->
+            <div class="card trend-card">
+                <h2 class="card-title">📉 Moisture Forecast</h2>
+                <div class="trend-display" id="moistureTrendDisplay">
+                    <div class="trend-label" id="trendLabel">Stable</div>
+                    <div class="trend-detail" id="trendDetail">—</div>
+                </div>
+            </div>
+
+            <!-- Sowing Calendar -->
+            <div class="card sowing-card">
+                <h2 class="card-title">📅 Sowing Calendar</h2>
+                <div id="sowingCalendar"><!-- filled by JS --></div>
+            </div>
+        </section>
+
+        <!-- CROP ADVISORY ROW -->
+        <section class="advisory-row">
+            <div class="card advisory-card" id="advisoryCard">
+                <h2 class="card-title">🌾 Crop Advisory — Top 3 Recommendations</h2>
+                <div id="cropAdvisoryList" class="crop-advisory-list">
+                    <div class="empty-state">No prediction data yet — click Simulate or connect hardware</div>
+                </div>
+            </div>
+        </section>
+
         <!-- WEATHER + CHART ROW -->
         <section class="chart-row">
             <!-- Weather -->

@@ -1070,3 +1070,348 @@ body::before {
         grid-template-columns: 1fr 1fr;
     }
 }
+
+/* ==========================================================================
+   AGRONOMIC ADVISORY LAYER — New Styles
+   ========================================================================== */
+
+/* ─── Disease Risk Banner ───────────────────────────────────────────── */
+
+.disease-risk-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.85rem 1.1rem;
+    border-radius: var(--radius-md);
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    animation: fade-in 0.4s var(--ease);
+}
+
+.disease-risk-inner {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.disease-risk-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.risk-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    margin-bottom: 0.4rem;
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.risk-item.risk-high {
+    background: rgba(239, 68, 68, 0.12);
+    border-left: 3px solid var(--danger);
+}
+
+.risk-item.risk-medium {
+    background: rgba(245, 158, 11, 0.10);
+    border-left: 3px solid var(--warning);
+}
+
+.risk-item strong {
+    color: var(--text-primary);
+    font-size: 0.8rem;
+}
+
+.risk-item span {
+    color: var(--text-secondary);
+}
+
+/* ─── Insights Row ─────────────────────────────────────────────────── */
+
+.insights-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1.25rem;
+}
+
+/* Soil Health Score Card */
+
+.health-score-display {
+    display: flex;
+    align-items: baseline;
+    gap: 0.2rem;
+    margin-bottom: 0.25rem;
+}
+
+.health-score-value {
+    font-size: 2.8rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.health-score-max {
+    font-size: 1rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.health-score-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.health-good  { color: var(--success); }
+.health-fair  { color: var(--warning); }
+.health-poor  { color: var(--danger); }
+
+.health-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.health-breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    padding: 0.3rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.health-breakdown-item:last-child {
+    border-bottom: none;
+}
+
+/* Moisture Trend Card */
+
+.trend-display {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+}
+
+.trend-label {
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.trend-danger  { color: var(--danger); }
+.trend-warning { color: var(--warning); }
+.trend-info    { color: var(--info); }
+.trend-stable  { color: var(--success); }
+
+.trend-detail {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* Sowing Calendar Card */
+
+.sow-crop-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.3rem;
+    text-transform: capitalize;
+}
+
+.sow-months {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 0.65rem;
+}
+
+.sow-status {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.73rem;
+    font-weight: 600;
+}
+
+.sow-now {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.sow-wait {
+    background: rgba(245, 158, 11, 0.10);
+    color: var(--warning);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+/* ─── Crop Advisory Row ────────────────────────────────────────────── */
+
+.advisory-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+}
+
+.crop-advisory-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.crop-advisory-item {
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    transition: all 0.3s var(--ease);
+}
+
+.crop-advisory-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.10);
+    transform: translateY(-2px);
+}
+
+.advisory-rank-1 {
+    border-left: 3px solid var(--n-color);
+}
+
+.advisory-rank-2 {
+    border-left: 3px solid var(--moisture);
+}
+
+.advisory-rank-3 {
+    border-left: 3px solid var(--text-muted);
+}
+
+.advisory-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.6rem;
+}
+
+.advisory-crop-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.advisory-match {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 12px;
+    background: rgba(6, 214, 160, 0.1);
+    color: var(--n-color);
+    border: 1px solid rgba(6, 214, 160, 0.2);
+}
+
+.npk-status-row {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.65rem;
+}
+
+.npk-status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.45rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.npk-ok   { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.2); }
+.npk-low  { background: rgba(239, 68, 68, 0.1);  color: var(--danger);  border: 1px solid rgba(239, 68, 68, 0.2); }
+.npk-high { background: rgba(245, 158, 11, 0.1); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.2); }
+
+.prescription-box {
+    margin-bottom: 0.6rem;
+    font-size: 0.72rem;
+    line-height: 1.5;
+}
+
+.prescription-line {
+    padding: 0.3rem 0;
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.prescription-line:last-child {
+    border-bottom: none;
+}
+
+.prescription-line b {
+    color: var(--text-primary);
+}
+
+.presc-nutrient {
+    color: var(--text-muted);
+    display: block;
+    font-size: 0.68rem;
+    margin-bottom: 0.1rem;
+}
+
+.presc-organic {
+    display: block;
+    font-size: 0.67rem;
+    color: var(--n-color);
+    margin-top: 0.15rem;
+    font-style: italic;
+}
+
+.presc-ok {
+    color: var(--success);
+    font-style: italic;
+}
+
+.sowing-window-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 0.2rem 0.55rem;
+    border-radius: 20px;
+}
+
+.sowing-now {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.sowing-wait {
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--warning);
+    border: 1px solid rgba(245, 158, 11, 0.15);
+}
+
+/* ─── Responsive: Advisory Sections ───────────────────────────────── */
+
+@media (max-width: 1200px) {
+    .insights-row {
+        grid-template-columns: 1fr 1fr;
+    }
+    .crop-advisory-list {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .insights-row {
+        grid-template-columns: 1fr;
+    }
+    .crop-advisory-list {
+        grid-template-columns: 1fr;
+    }
+}
